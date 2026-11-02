@@ -13,7 +13,7 @@ export async function GET() {
 
   try {
     // Check database connection
-    const supabase = createClient()
+    const supabase = await createClient()
     const dbStart = Date.now()
     const { error: dbError } = await supabase.from("profiles").select("count").limit(1).single()
     const dbResponseTime = Date.now() - dbStart

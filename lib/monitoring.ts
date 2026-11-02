@@ -24,7 +24,10 @@ export interface ErrorLog {
 }
 
 export class MonitoringService {
-  private supabase = createClient()
+  // Create the client per call: it reads request cookies, so it cannot live at module scope.
+  private get supabase() {
+    return createClient()
+  }
 
   async trackEvent(event: AnalyticsEvent) {
     try {
@@ -34,7 +37,7 @@ export class MonitoringService {
       const realIp = headersList.get("x-real-ip")
       const ip = forwardedFor?.split(",")[0] || realIp
 
-      await this.supabase.from("analytics_events").insert({
+      await (await this.supabase).from("analytics_events").insert({
         event_type: event.event_type,
         event_data: event.event_data || {},
         user_id: event.user_id,
@@ -49,7 +52,7 @@ export class MonitoringService {
 
   async recordPerformanceMetric(metric: PerformanceMetric) {
     try {
-      await this.supabase.from("performance_metrics").insert({
+      await (await this.supabase).from("performance_metrics").insert({
         metric_type: metric.metric_type,
         metric_value: metric.metric_value,
         metadata: metric.metadata || {},
@@ -66,7 +69,7 @@ export class MonitoringService {
       const userAgent = headersList.get("user-agent")
       const referer = headersList.get("referer")
 
-      await this.supabase.from("error_logs").insert({
+      await (await this.supabase).from("error_logs").insert({
         error_type: errorLog.error_type,
         error_message: errorLog.error_message,
         stack_trace: errorLog.stack_trace,
@@ -87,7 +90,7 @@ export class MonitoringService {
     errorRate?: number,
   ) {
     try {
-      await this.supabase.from("system_health").insert({
+      await (await this.supabase).from("system_health").insert({
         service_name: serviceName,
         status,
         response_time_ms: responseTime,
@@ -111,21 +114,21 @@ export class MonitoringService {
     }
 
     try {
-      const { data: events } = await this.supabase
+      const { data: events } = await (await this.supabase)
         .from("analytics_events")
         .select("*")
         .eq("user_id", userId)
         .gte("created_at", `now() - interval '${timeMap[timeRange]}'`)
         .order("created_at", { ascending: false })
 
-      const { data: metrics } = await this.supabase
+      const { data: metrics } = await (await this.supabase)
         .from("performance_metrics")
         .select("*")
         .eq("user_id", userId)
         .gte("created_at", `now() - interval '${timeMap[timeRange]}'`)
         .order("created_at", { ascending: false })
 
-      const { data: errors } = await this.supabase
+      const { data: errors } = await (await this.supabase)
         .from("error_logs")
         .select("*")
         .eq("user_id", userId)
@@ -141,7 +144,7 @@ export class MonitoringService {
 
   async getSystemHealth() {
     try {
-      const { data } = await this.supabase
+      const { data } = await (await this.supabase)
         .from("system_health")
         .select("*")
         .gte("created_at", `now() - interval '5 minutes'`)
